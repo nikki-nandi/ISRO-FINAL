@@ -69,13 +69,13 @@ layer_map = pdk.Layer(
     "ScatterplotLayer",
     data=df_highres,
     get_position='[longitude, latitude]',
-    get_radius=10000,
+    get_radius=12000,
     get_fill_color="color",
     pickable=True,
     opacity=0.8,
 )
 
-view_map = pdk.ViewState(latitude=22.5, longitude=80.0, zoom=4.5, pitch=40)
+view_map = pdk.ViewState(latitude=22.5, longitude=80.0, zoom=5.5, pitch=40)
 
 st.pydeck_chart(pdk.Deck(
     map_style="mapbox://styles/mapbox/dark-v10",
@@ -133,6 +133,7 @@ for i in range(len(df_all)):
 
     with placeholder.container():
         st.markdown(f"### 🏠 {city} | ⏱️ Hour: {int(row['hour'])}")
+        st.caption(f"🔄 Auto-refreshing every {refresh_interval} seconds")
 
         col1, col2 = st.columns(2)
         col1.markdown(f"""
@@ -145,7 +146,6 @@ for i in range(len(df_all)):
             PM10<br><span style='font-size:36px'>{row['PM10_Pred']:.2f}</span></div>
         """, unsafe_allow_html=True)
 
-        # Map with all city data
         city_df = df_all[df_all["city"] == city].copy()
         city_df["color"] = city_df["PM2.5_Pred"].apply(get_pm_color)
 
@@ -153,7 +153,7 @@ for i in range(len(df_all)):
             "ScatterplotLayer",
             data=city_df,
             get_position='[longitude, latitude]',
-            get_radius=8000,
+            get_radius=10000,
             get_fill_color="color",
             pickable=True,
             opacity=0.8,
@@ -168,7 +168,6 @@ for i in range(len(df_all)):
             tooltip={"text": "Lat: {latitude}\nLon: {longitude}\nPM2.5: {PM2.5_Pred}\nPM10: {PM10_Pred}"}
         ))
 
-        # Last 10 readings for chart
         last_10 = city_df.tail(10)
         melted = pd.melt(last_10, id_vars=["hour"], value_vars=["PM2.5_Pred", "PM10_Pred"],
                          var_name="Pollutant", value_name="Concentration")
