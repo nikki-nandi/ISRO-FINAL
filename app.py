@@ -62,7 +62,7 @@ def get_pm_color(pm):
 
 # --- HIGH-RESOLUTION MAP ---
 st.markdown("### 🌏 High-Resolution PM2.5 Prediction Map")
-df_highres = pd.read_csv("high_res_pm25_predictions.csv")
+df_highres = pd.read_csv("data/high_res_pm25_predictions.csv")
 df_highres["color"] = df_highres["PM2.5_Pred"].apply(get_pm_color)
 
 layer_map = pdk.Layer(
@@ -90,7 +90,7 @@ with st.expander("📋 Show High-Resolution Prediction Table"):
 st.download_button(
     label="📅 Download High-Res Predictions",
     data=df_highres.to_csv(index=False).encode(),
-    file_name="data/pm25_high_res_predictions.csv",
+    file_name="pm25_high_res_predictions.csv",
     mime="text/csv"
 )
 
