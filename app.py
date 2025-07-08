@@ -9,21 +9,32 @@ import os
 # Page config
 st.set_page_config(page_title="PM2.5 & PM10 Monitoring", layout="wide")
 
-# --- DARK MODE STYLING ---
+# --- BLUE THEME STYLING ---
 st.markdown("""
     <style>
-    .main { background-color: #0b1725; color: #ffffff; }
-    section[data-testid="stSidebar"] {
-        background-color: #08121d;
-        color: white;
-        border-right: 1px solid #222;
+    .main {
+        background-color: #0b1f3a;
+        color: #ffffff;
     }
-    h1, h2, h3, h4, .st-bb, .st-cb { color: #ffffff !important; }
+    section[data-testid="stSidebar"] {
+        background-color: #0b1f3a;
+        color: white;
+        border-right: 1px solid #0b3c5d;
+    }
+    h1, h2, h3, h4, .st-bb, .st-cb {
+        color: #ffffff !important;
+    }
     .stButton>button, .stDownloadButton>button {
-        background-color: #1464b4;
+        background-color: #1e88e5;
         color: white;
         font-weight: bold;
         border-radius: 8px;
+    }
+    .block-container {
+        background-color: #0b1f3a;
+    }
+    .stDataFrame {
+        background-color: #0b1f3a !important;
     }
     </style>
 """, unsafe_allow_html=True)
