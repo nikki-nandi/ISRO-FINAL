@@ -6,26 +6,27 @@ import altair as alt
 import time
 import os
 
-# --- CONFIG ---
+# --- PAGE CONFIG ---
 st.set_page_config(page_title="PM2.5 & PM10 Monitoring Dashboard", layout="wide")
 
-# --- BLUISH THEME CSS ---
+# --- FULL BLACK THEME CSS ---
 st.markdown("""
     <style>
     .main {
-        background-color: #0a2740;
-        color: white;
+        background-color: #000000 !important;
+        color: white !important;
     }
     section[data-testid="stSidebar"] {
-        background-color: #102c4e;
+        background-color: #000000 !important;
+        color: white !important;
         border-right: 1px solid #333;
     }
-    h1, h2, h3, h4, .st-bb, .st-cb {
-        color: #ffffff !important;
+    h1, h2, h3, h4, h5, h6, p, .st-bb, .st-cb {
+        color: white !important;
     }
     .stButton>button, .stDownloadButton>button {
-        background-color: #2a7abe;
-        color: white;
+        background-color: #2a7abe !important;
+        color: white !important;
         font-weight: bold;
         border-radius: 8px;
     }
@@ -38,9 +39,16 @@ st.markdown("""
         background-color: white !important;
         border-radius: 6px;
     }
-    .stDataFrame, .css-1cpxqw2 {
-        background-color: #0a2740 !important;
+    .stDataFrame, .css-1cpxqw2, .element-container {
+        background-color: #000000 !important;
         color: white !important;
+    }
+    header[data-testid="stHeader"] {
+        background-color: #000000 !important;
+        color: white;
+    }
+    .block-container {
+        box-shadow: none !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -59,7 +67,7 @@ with col3:
 
 st.markdown("---")
 
-# --- UTILS ---
+# --- FUNCTIONS ---
 def get_pm_color(pm):
     if pm <= 60:
         return [0, 200, 0]
@@ -70,7 +78,7 @@ def get_pm_color(pm):
 
 # --- HIGH-RESOLUTION MAP ---
 st.markdown("### 🌏 High-Resolution PM2.5 Prediction Map")
-df_highres = pd.read_csv("data/high_res_pm25_predictions.csv")  # Make sure file is placed inside `data/`
+df_highres = pd.read_csv("data/high_res_pm25_predictions.csv")
 df_highres["color"] = df_highres["PM2.5_Pred"].apply(get_pm_color)
 
 layer_map = pdk.Layer(
@@ -83,7 +91,7 @@ layer_map = pdk.Layer(
     opacity=0.8,
 )
 
-view_map = pdk.ViewState(latitude=df_highres["latitude"].mean(), longitude=df_highres["longitude"].mean(), zoom=5.5, pitch=40)
+view_map = pdk.ViewState(latitude=22.5, longitude=80.0, zoom=5.5, pitch=40)
 
 st.pydeck_chart(pdk.Deck(
     map_style="mapbox://styles/mapbox/dark-v10",
@@ -131,6 +139,7 @@ for city in selected_cities:
 if not frames:
     st.stop()
 
+# --- PROCESS ALL CITY DATA ---
 df_all = pd.concat(frames, ignore_index=True)
 
 placeholder = st.empty()
@@ -139,16 +148,17 @@ for i in range(len(df_all)):
     city = row["city"]
 
     with placeholder.container():
-        st.markdown(f"### 🏙️ {city} | ⏱️ Hour: {int(row['hour'])}")
+        st.markdown(f"### 🏠 {city} | ⏱️ Hour: {int(row['hour'])}")
         st.caption(f"🔄 Auto-refreshing every {refresh_interval} seconds")
 
         col1, col2 = st.columns(2)
         col1.markdown(f"""
-            <div style='padding:20px;background:#1e3a5f;color:white;border-radius:10px;'>
+            <div style='padding:20px;background:#111111;color:white;border-radius:10px;'>
             PM2.5<br><span style='font-size:36px'>{row['PM2.5_Pred']:.2f}</span></div>
         """, unsafe_allow_html=True)
+
         col2.markdown(f"""
-            <div style='padding:20px;background:#1e3a5f;color:white;border-radius:10px;'>
+            <div style='padding:20px;background:#111111;color:white;border-radius:10px;'>
             PM10<br><span style='font-size:36px'>{row['PM10_Pred']:.2f}</span></div>
         """, unsafe_allow_html=True)
 
@@ -165,7 +175,7 @@ for i in range(len(df_all)):
             opacity=0.8,
         )
 
-        view = pdk.ViewState(latitude=row["latitude"], longitude=row["longitude"], zoom=6, pitch=30)
+        view = pdk.ViewState(latitude=row["latitude"], longitude=row["longitude"], zoom=5.5, pitch=30)
 
         st.pydeck_chart(pdk.Deck(
             map_style="mapbox://styles/mapbox/dark-v10",
