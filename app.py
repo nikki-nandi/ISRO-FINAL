@@ -9,7 +9,7 @@ import os
 # --- CONFIG ---
 st.set_page_config(page_title="PM2.5 & PM10 Monitoring Dashboard", layout="wide")
 
-# --- DARK THEME STYLING ---
+# --- DARK THEME CSS ---
 st.markdown("""
     <style>
     body, .main {
@@ -51,7 +51,7 @@ with col3:
 
 st.markdown("---")
 
-# --- HELPER FUNCTION ---
+# --- HELPER ---
 def get_pm_color(pm):
     if pm <= 60:
         return [0, 200, 0]
@@ -60,9 +60,15 @@ def get_pm_color(pm):
     else:
         return [255, 0, 0]
 
-# --- HIGH-RESOLUTION MAP ---
+# --- HIGH-RES MAP ---
 st.markdown("### 🛰️ High-Resolution PM2.5 Prediction Map")
-df_highres = pd.read_csv("high_res_pm25_predictions.csv")
+highres_path = "data/high_res_pm25_predictions.csv"
+
+if not os.path.exists(highres_path):
+    st.error("Missing file: high_res_pm25_predictions.csv in data/")
+    st.stop()
+
+df_highres = pd.read_csv(highres_path)
 df_highres["color"] = df_highres["PM2.5_Pred"].apply(get_pm_color)
 
 layer_map = pdk.Layer(
@@ -96,13 +102,13 @@ st.download_button(
 
 st.markdown("---")
 
-# --- SIDEBAR CONFIG ---
+# --- SIDEBAR ---
 st.sidebar.header("🔧 Configuration")
 city_files = {
-    "Delhi": "delhi_pm_data.csv",
-    "Bangalore": "bangalore_pm_data.csv",
-    "Hyderabad": "hyderabad_pm_data.csv",
-    "Kolkata": "kolkata_pm_data.csv"
+    "Delhi": "data/delhi_pm_data.csv",
+    "Bangalore": "data/bangalore_pm_data.csv",
+    "Hyderabad": "data/hyderabad_pm_data.csv",
+    "Kolkata": "data/kolkata_pm_data.csv"
 }
 
 selected_cities = st.sidebar.multiselect("Select cities to monitor:", list(city_files.keys()), default=list(city_files.keys()))
@@ -124,13 +130,13 @@ if not frames:
 df_all = pd.concat(frames, ignore_index=True)
 placeholder = st.empty()
 
-# --- LIVE DASHBOARD ---
+# --- MULTI-CITY DASHBOARD ---
 for i in range(len(df_all)):
     row = df_all.iloc[i]
     city = row["city"]
 
     with placeholder.container():
-        st.markdown(f"### 🌐 Multi-City Live PM2.5 & PM10 Monitoring Dashboard")
+        st.markdown("### 🌐 Multi-City Live PM2.5 & PM10 Monitoring Dashboard")
         st.markdown(f"### 🏙️ {city} | ⏱️ Hour: {int(row['hour'])}")
         st.caption(f"🔄 Auto-refreshing every {refresh_interval} seconds")
 
@@ -175,7 +181,7 @@ for i in range(len(df_all)):
 
     time.sleep(refresh_interval)
 
-# --- DOWNLOAD COMBINED ---
+# --- EXPORT ---
 st.download_button(
     label="📦 Download All City Predictions",
     data=df_all.to_csv(index=False).encode(),
