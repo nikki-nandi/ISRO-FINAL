@@ -90,7 +90,7 @@ with st.expander("📋 Show High-Resolution Prediction Table"):
 st.download_button(
     label="📅 Download High-Res Predictions",
     data=df_highres.to_csv(index=False).encode(),
-    file_name="pm25_high_res_predictions.csv",
+    file_name="data/pm25_high_res_predictions.csv",
     mime="text/csv"
 )
 
@@ -100,10 +100,10 @@ st.markdown("---")
 st.markdown("### 🌐 Multi-City Live PM2.5 & PM10 Monitoring Dashboard")
 
 city_files = {
-    "Delhi": "delhi_pm_data.csv",
-    "Bangalore": "bangalore_pm_data.csv",
-    "Hyderabad": "hyderabad_pm_data.csv",
-    "Kolkata": "kolkata_pm_data.csv"
+    "Delhi": "data/delhi_pm_data.csv",
+    "Bangalore": "data/bangalore_pm_data.csv",
+    "Hyderabad": "data/hyderabad_pm_data.csv",
+    "Kolkata": "data/kolkata_pm_data.csv"
 }
 
 st.sidebar.header("🔧 Configuration")
