@@ -1,141 +1,179 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 import pydeck as pdk
+import altair as alt
 import os
+import time
 
 # ------------------- CONFIG -------------------
 st.set_page_config(page_title="PM2.5 & PM10 Monitoring Dashboard", layout="wide")
 
-# ------------------- CUSTOM CSS -------------------
+# ------------------- DARK THEME CSS -------------------
 st.markdown("""
     <style>
-    body, .main {
-        background-color: #0b1e2d !important;
-        color: #ffffff !important;
-        font-family: 'Segoe UI', sans-serif;
-    }
+    .main { background-color: #0b1725; color: #ffffff; }
     section[data-testid="stSidebar"] {
-        background-color: #081520 !important;
-        color: white !important;
-        border-right: 1px solid #1a2a3b;
-    }
-    h1, h2, h3, h4, .st-bb, .st-cb {
-        color: #ffffff !important;
-    }
-    .stButton>button, .stDownloadButton>button {
-        background-color: #2196F3;
+        background-color: #08121d;
         color: white;
-        border-radius: 8px;
-        padding: 0.5em 1.5em;
+        border-right: 1px solid #222;
+    }
+    h1, h2, h3, h4, .st-bb, .st-cb { color: #ffffff !important; }
+    .stButton>button, .stDownloadButton>button {
+        background-color: #1464b4;
+        color: white;
         font-weight: bold;
+        border-radius: 8px;
     }
-    .stSelectbox>div[data-baseweb="select"], .stMultiSelect>div {
-        background-color: white;
-        border-radius: 10px;
-        color: black;
-    }
-    .metric-container {
-        background-color: #102738;
-        border-radius: 12px;
-        padding: 20px;
-        box-shadow: 0px 4px 8px rgba(0,0,0,0.3);
-        text-align: center;
-        margin-bottom: 10px;
+    section[data-testid="stSidebar"] label {
+        color: white !important;
+        font-weight: bold;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# ------------------- LOAD DATA -------------------
-data_dir = "data"
-
-city_files = {
-    "Delhi": os.path.join(data_dir, "delhi_pm_data.csv"),
-    "Bangalore": os.path.join(data_dir, "bangalore_pm_data.csv"),
-    "Hyderabad": os.path.join(data_dir, "hyderabad_pm_data.csv"),
-    "Kolkata": os.path.join(data_dir, "kolkata_pm_data.csv")
-}
-
-high_res_file = os.path.join(data_dir, "high_res_pm25_predictions.csv")
-
-df_highres = pd.read_csv(high_res_file)
-
-# ------------------- SIDEBAR CONFIG -------------------
-st.sidebar.header("🛠️ Configuration")
-cities = st.sidebar.multiselect("Select cities to monitor:", list(city_files.keys()), default=["Delhi"])
-interval = st.sidebar.selectbox("Refresh Interval (seconds)", [5, 10, 30, 60], index=0)
-
 # ------------------- HEADER -------------------
-st.image("ISRO-Color.png", width=120)
-st.title("ISRO & CPCB AIR POLLUTION LIVE MONITORING SITE")
-st.markdown("""<small>Real-Time Air Quality Monitoring</small>""", unsafe_allow_html=True)
+col_logo1, col_title, col_logo2 = st.columns([1, 5, 1])
+with col_logo1:
+    st.image("ISRO-Color.png", width=120)
+with col_title:
+    st.markdown("""
+        <h2 style='text-align: center; color: #64b5f6;'>ISRO & CPCB AIR POLLUTION LIVE MONITORING SITE</h2>
+        <h5 style='text-align: center; color: #a5b4c3;'>Real-Time Air Quality Monitoring</h5>
+    """, unsafe_allow_html=True)
+with col_logo2:
+    st.image("cpcb.png", width=120)
 
-# ------------------- HIGH RESOLUTION MAP -------------------
-st.subheader("🛰️ High-Resolution PM2.5 Prediction Map")
+st.markdown("---")
 
-layer = pdk.Layer(
+# ------------------- HIGH-RES MAP -------------------
+st.markdown("### 🌏 High-Resolution PM2.5 Prediction Map")
+
+@st.cache_data
+def load_highres():
+    df = pd.read_csv("data/high_res_pm25_predictions.csv")
+    df.columns = df.columns.str.lower()
+    return df
+
+def get_pm_color(pm):
+    if pm <= 60:
+        return [0, 200, 0]
+    elif pm <= 120:
+        return [255, 165, 0]
+    else:
+        return [255, 0, 0]
+
+df_map = load_highres()
+df_map["color"] = df_map["pm2.5_pred"].apply(get_pm_color)
+
+map_layer = pdk.Layer(
     "ScatterplotLayer",
-    data=df_highres,
-    get_position='[Longitude, Latitude]',
-    get_color="[255, 255 - PM25*2, 0]",
-    get_radius=25000,
+    data=df_map,
+    get_position='[longitude, latitude]',
+    get_radius=10000,
+    get_fill_color="color",
     pickable=True,
-    auto_highlight=True
+    opacity=0.8,
 )
 
-view_state = pdk.ViewState(
-    latitude=df_highres.Latitude.mean(),
-    longitude=df_highres.Longitude.mean(),
-    zoom=4.5,
-    pitch=0
-)
+view_map = pdk.ViewState(latitude=22.5, longitude=80.0, zoom=4.5, pitch=40)
 
 st.pydeck_chart(pdk.Deck(
-    map_style='mapbox://styles/mapbox/dark-v10',
-    layers=[layer],
-    initial_view_state=view_state
+    map_style="mapbox://styles/mapbox/dark-v10",
+    initial_view_state=view_map,
+    layers=[map_layer],
+    tooltip={"text": "Lat: {latitude}\nLon: {longitude}\nPM2.5: {pm2.5_pred}"}
 ))
 
-st.download_button("📘 Download High-Res Predictions", df_highres.to_csv(index=False), "high_res_predictions.csv")
+with st.expander("📋 Show High-Resolution Table"):
+    st.dataframe(df_map[["latitude", "longitude", "pm2.5_pred"]].round(2))
 
-# ------------------- CITY-WISE AQ MONITORING -------------------
-st.subheader("🌐 Multi-City Live PM2.5 & PM10 Monitoring Dashboard")
+st.download_button(
+    label="📥 Download High-Res Predictions",
+    data=df_map.to_csv(index=False).encode(),
+    file_name="high_res_pm25_predictions.csv",
+    mime="text/csv"
+)
 
-for city in cities:
-    st.markdown(f"### 🏙️ {city}")
-    df = pd.read_csv(city_files[city])
-    df = df.sort_values("Hour")
+# ------------------- CITY-WISE LIVE MONITORING -------------------
+st.markdown("### 🌐 Multi-City Live PM2.5 & PM10 Monitoring Dashboard")
 
-    latest = df.iloc[-1]
-    col1, col2 = st.columns(2)
-    with col1:
-        st.metric("PM2.5", f"{latest['PM2.5']:.2f}")
-    with col2:
-        st.metric("PM10", f"{latest['PM10']:.2f}")
+city_files = {
+    "Delhi": "data/delhi_pm_data.csv",
+    "Bangalore": "data/bangalore_pm_data.csv",
+    "Hyderabad": "data/hyderabad_pm_data.csv",
+    "Kolkata": "data/kolkata_pm_data.csv"
+}
 
-    layer_city = pdk.Layer(
-        "ScatterplotLayer",
-        data=df,
-        get_position='[Longitude, Latitude]',
-        get_color="[255, 255 - PM2.5*2, 0]",
-        get_radius=8000,
-        pickable=True,
-        auto_highlight=True
-    )
+st.sidebar.header("🔧 Configuration")
+selected_cities = st.sidebar.multiselect("Select cities to monitor:", list(city_files.keys()), default=list(city_files.keys()))
+refresh_interval = st.sidebar.selectbox("Refresh Interval (seconds)", [1, 5, 10], index=1)
 
-    view_state_city = pdk.ViewState(
-        latitude=df.Latitude.mean(),
-        longitude=df.Longitude.mean(),
-        zoom=6,
-        pitch=0
-    )
+frames = []
+for city in selected_cities:
+    path = city_files.get(city)
+    if path and os.path.exists(path):
+        df = pd.read_csv(path)
+        df.columns = df.columns.str.lower()
+        df["city"] = city
+        frames.append(df)
+    else:
+        st.warning(f"Data for {city} not found at {path}")
 
-    st.pydeck_chart(pdk.Deck(
-        map_style='mapbox://styles/mapbox/dark-v10',
-        layers=[layer_city],
-        initial_view_state=view_state_city
-    ))
+if not frames:
+    st.stop()
 
-    st.line_chart(df.set_index("Hour")[['PM2.5', 'PM10']])
+df_all = pd.concat(frames, ignore_index=True)
 
-st.success(f"✅ Auto refreshing every {interval} seconds")
+placeholder = st.empty()
+for i in range(len(df_all)):
+    row = df_all.iloc[i]
+    with placeholder.container():
+        st.markdown(f"### 🏙️ {row['city']} | ⏱️ Hour: {int(row['hour'])}")
+
+        col1, col2 = st.columns(2)
+        col1.markdown(f"""
+            <div style='padding:20px;background:#112233;color:white;border-radius:10px;'>
+            PM2.5<br><span style='font-size:36px'>{row['pm2.5']:.2f}</span></div>
+        """, unsafe_allow_html=True)
+
+        col2.markdown(f"""
+            <div style='padding:20px;background:#112233;color:white;border-radius:10px;'>
+            PM10<br><span style='font-size:36px'>{row['pm10']:.2f}</span></div>
+        """, unsafe_allow_html=True)
+
+        view = pdk.ViewState(latitude=row["latitude"], longitude=row["longitude"], zoom=5.5, pitch=30)
+        layer = pdk.Layer("ScatterplotLayer", data=pd.DataFrame([row]),
+                          get_position='[longitude, latitude]',
+                          get_fill_color=get_pm_color(row["pm2.5"]),
+                          get_radius=10000)
+
+        st.pydeck_chart(pdk.Deck(
+            map_style="mapbox://styles/mapbox/dark-v10",
+            initial_view_state=view,
+            layers=[layer],
+            tooltip={"text": "Lat: {latitude}\nLon: {longitude}\nPM2.5: {pm2.5}\nPM10: {pm10}"}
+        ))
+
+        city_df = df_all[df_all["city"] == row["city"]].tail(10)
+        melted = pd.melt(city_df, id_vars=["hour"], value_vars=["pm2.5", "pm10"],
+                         var_name="Pollutant", value_name="Concentration")
+
+        chart = alt.Chart(melted).mark_line(point=True).encode(
+            x=alt.X("hour:O", title="Hour"),
+            y=alt.Y("Concentration:Q", title="μg/m³"),
+            color=alt.Color("Pollutant:N"),
+            tooltip=["hour", "Pollutant", "Concentration"]
+        ).properties(title="📊 Last 10 Readings", height=300, width=800)
+
+        st.altair_chart(chart, use_container_width=True)
+        st.markdown("---")
+
+    time.sleep(refresh_interval)
+
+# ------------------- DOWNLOAD ALL -------------------
+st.download_button(
+    label="📥 Download All City Predictions",
+    data=df_all.to_csv(index=False).encode(),
+    file_name="all_city_pm_predictions.csv",
+    mime="text/csv"
+)
