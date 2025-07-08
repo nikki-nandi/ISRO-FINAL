@@ -9,30 +9,32 @@ import os
 # --- CONFIG ---
 st.set_page_config(page_title="PM2.5 & PM10 Monitoring Dashboard", layout="wide")
 
-# --- CUSTOM CSS FOR DARK UI ---
+# --- DARK THEME STYLING ---
 st.markdown("""
     <style>
-    .main { background-color: #0b1725; color: #ffffff; }
+    body, .main {
+        background-color: #0b1725;
+        color: white;
+    }
     section[data-testid="stSidebar"] {
         background-color: #08121d;
-        color: white;
         border-right: 1px solid #222;
     }
-    h1, h2, h3, h4, .st-bb, .st-cb { color: #ffffff !important; }
-    .stButton>button, .stDownloadButton>button {
+    .stDownloadButton button, .stButton button {
         background-color: #1464b4;
         color: white;
         font-weight: bold;
         border-radius: 8px;
     }
-    section[data-testid="stSidebar"] label {
-        color: white !important;
-        font-weight: bold;
+    h1, h2, h3, h4, .st-bb, .st-cb {
+        color: #ffffff !important;
     }
-    section[data-testid="stSidebar"] .stSelectbox div[data-baseweb="select"] {
-        color: black !important;
-        background-color: white !important;
-        border-radius: 8px;
+    .metric-container {
+        background-color: #112233;
+        padding: 20px;
+        border-radius: 10px;
+        margin-bottom: 10px;
+        color: white;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -40,18 +42,16 @@ st.markdown("""
 # --- HEADER ---
 col1, col2, col3 = st.columns([1, 5, 1])
 with col1:
-    st.image("ISRO-Color.png", width=120)
+    st.image("ISRO-Color.png", width=100)
 with col2:
-    st.markdown("""
-        <h2 style='text-align: center; color: #64b5f6;'>ISRO & CPCB AIR POLLUTION LIVE MONITORING SITE</h2>
-        <h5 style='text-align: center; color: #a5b4c3;'>Real-Time Air Quality Monitoring</h5>
-    """, unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align:center;color:#64b5f6;'>ISRO & CPCB AIR POLLUTION LIVE MONITORING SITE</h2>", unsafe_allow_html=True)
+    st.markdown("<h5 style='text-align:center;color:#a5b4c3;'>Real-Time Air Quality Monitoring</h5>", unsafe_allow_html=True)
 with col3:
-    st.image("cpcb.png", width=120)
+    st.image("cpcb.png", width=100)
 
 st.markdown("---")
 
-# --- FUNCTIONS ---
+# --- HELPER FUNCTION ---
 def get_pm_color(pm):
     if pm <= 60:
         return [0, 200, 0]
@@ -61,8 +61,8 @@ def get_pm_color(pm):
         return [255, 0, 0]
 
 # --- HIGH-RESOLUTION MAP ---
-st.markdown("### 🌏 High-Resolution PM2.5 Prediction Map")
-df_highres = pd.read_csv("data/high_res_pm25_predictions.csv")
+st.markdown("### 🛰️ High-Resolution PM2.5 Prediction Map")
+df_highres = pd.read_csv("high_res_pm25_predictions.csv")
 df_highres["color"] = df_highres["PM2.5_Pred"].apply(get_pm_color)
 
 layer_map = pdk.Layer(
@@ -96,17 +96,15 @@ st.download_button(
 
 st.markdown("---")
 
-# --- CITY-WISE LIVE DASHBOARD ---
-st.markdown("### 🌐 Multi-City Live PM2.5 & PM10 Monitoring Dashboard")
-
+# --- SIDEBAR CONFIG ---
+st.sidebar.header("🔧 Configuration")
 city_files = {
-    "Delhi": "data/delhi_pm_data.csv",
-    "Bangalore": "data/bangalore_pm_data.csv",
-    "Hyderabad": "data/hyderabad_pm_data.csv",
-    "Kolkata": "data/kolkata_pm_data.csv"
+    "Delhi": "delhi_pm_data.csv",
+    "Bangalore": "bangalore_pm_data.csv",
+    "Hyderabad": "hyderabad_pm_data.csv",
+    "Kolkata": "kolkata_pm_data.csv"
 }
 
-st.sidebar.header("🔧 Configuration")
 selected_cities = st.sidebar.multiselect("Select cities to monitor:", list(city_files.keys()), default=list(city_files.keys()))
 refresh_interval = st.sidebar.selectbox("Refresh Interval (seconds)", [1, 5, 10], index=1)
 
@@ -123,28 +121,22 @@ for city in selected_cities:
 if not frames:
     st.stop()
 
-# --- PROCESS ALL CITY DATA ---
 df_all = pd.concat(frames, ignore_index=True)
-
 placeholder = st.empty()
+
+# --- LIVE DASHBOARD ---
 for i in range(len(df_all)):
     row = df_all.iloc[i]
     city = row["city"]
 
     with placeholder.container():
-        st.markdown(f"### 🏠 {city} | ⏱️ Hour: {int(row['hour'])}")
+        st.markdown(f"### 🌐 Multi-City Live PM2.5 & PM10 Monitoring Dashboard")
+        st.markdown(f"### 🏙️ {city} | ⏱️ Hour: {int(row['hour'])}")
         st.caption(f"🔄 Auto-refreshing every {refresh_interval} seconds")
 
         col1, col2 = st.columns(2)
-        col1.markdown(f"""
-            <div style='padding:20px;background:#112233;color:white;border-radius:10px;'>
-            PM2.5<br><span style='font-size:36px'>{row['PM2.5_Pred']:.2f}</span></div>
-        """, unsafe_allow_html=True)
-
-        col2.markdown(f"""
-            <div style='padding:20px;background:#112233;color:white;border-radius:10px;'>
-            PM10<br><span style='font-size:36px'>{row['PM10_Pred']:.2f}</span></div>
-        """, unsafe_allow_html=True)
+        col1.markdown(f"<div class='metric-container'>PM2.5<br><span style='font-size:36px'>{row['PM2.5_Pred']:.2f}</span></div>", unsafe_allow_html=True)
+        col2.markdown(f"<div class='metric-container'>PM10<br><span style='font-size:36px'>{row['PM10_Pred']:.2f}</span></div>", unsafe_allow_html=True)
 
         city_df = df_all[df_all["city"] == city].copy()
         city_df["color"] = city_df["PM2.5_Pred"].apply(get_pm_color)
@@ -160,7 +152,6 @@ for i in range(len(df_all)):
         )
 
         view = pdk.ViewState(latitude=row["latitude"], longitude=row["longitude"], zoom=5.5, pitch=30)
-
         st.pydeck_chart(pdk.Deck(
             map_style="mapbox://styles/mapbox/dark-v10",
             initial_view_state=view,
@@ -184,9 +175,9 @@ for i in range(len(df_all)):
 
     time.sleep(refresh_interval)
 
-# --- DOWNLOAD ALL ---
+# --- DOWNLOAD COMBINED ---
 st.download_button(
-    label="📆 Download All City Predictions",
+    label="📦 Download All City Predictions",
     data=df_all.to_csv(index=False).encode(),
     file_name="all_city_pm_predictions.csv",
     mime="text/csv"
