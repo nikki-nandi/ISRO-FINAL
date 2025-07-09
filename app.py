@@ -17,9 +17,6 @@ st.markdown("""
         h1, h2, h3, h4, h5, h6 {
             color: white;
         }
-        .css-1v3fvcr, .css-1rs6os.edgvbvh3 {
-            display: none;
-        }
     </style>
 """, unsafe_allow_html=True)
 
@@ -40,11 +37,16 @@ st.markdown("---")
 # ------------------ SIDEBAR ------------------
 with st.sidebar:
     st.header("🛠️ Configuration")
-    selected_cities = st.multiselect("Select cities to monitor:", ["Delhi", "Kolkata", "Bangalore", "Hyderabad"], default=["Delhi"])
+    selected_cities = st.multiselect(
+        "Select cities to monitor:", 
+        ["Delhi", "Kolkata", "Bangalore", "Hyderabad"], 
+        default=["Delhi"]
+    )
     refresh_interval = st.selectbox("Refresh Interval (seconds)", [5, 10, 30, 60])
 
 # ------------------ HIGH-RES MAP ------------------
 st.subheader("🌍 High-Resolution PM2.5 Prediction Map")
+
 hr_df = pd.read_csv("data/high_res_input_sample_100.csv")
 
 hr_map = folium.Map(
@@ -71,22 +73,29 @@ with col1:
     if st.button("📊 Show High-Resolution Prediction Table"):
         st.dataframe(hr_df)
 with col2:
-    st.download_button("📥 Download High-Res Predictions", hr_df.to_csv(index=False), file_name="high_res_pm25.csv")
+    st.download_button(
+        "📥 Download High-Res Predictions", 
+        hr_df.to_csv(index=False), 
+        file_name="high_res_pm25.csv"
+    )
 
-# ------------------ CITY DASHBOARD ------------------
+# ------------------ CITY-WISE MONITORING ------------------
+
 st.markdown("### 📡 Multi-City Live PM2.5 & PM10 Monitoring Dashboard")
+
+city_file_map = {
+    "Delhi": "delhi_pm_data.csv",
+    "Kolkata": "kolkata_pm_data.csv",
+    "Bangalore": "bangalore_pm_data.csv",
+    "Hyderabad": "hyderabad_pm_data.csv"
+}
 
 for city in selected_cities:
     st.markdown(f"### 🏙️ {city}")
 
-    city_file = {
-        "Delhi": "delhi_pm_data.csv",
-        "Kolkata": "kolkata_pm_data.csv",
-        "Bangalore": "bangalore_pm_data.csv",
-        "Hyderabad": "hyderabad_pm_data.csv"
-    }[city]
-
+    city_file = city_file_map[city]
     df = pd.read_csv(f"data/{city_file}")
+
     latest = df.iloc[-1]
 
     st.markdown(f"**Hour:** {latest['hour']}")
@@ -95,7 +104,6 @@ for city in selected_cities:
     c1.metric("PM2.5", f"{latest['PM2.5']:.2f}")
     c2.metric("PM10", f"{latest['PM10']:.2f}")
 
-    # Map for City
     city_map = folium.Map(
         location=[latest['latitude'], latest['longitude']],
         zoom_start=10,
@@ -108,8 +116,8 @@ for city in selected_cities:
 
     st_folium(city_map, width=1200, height=400)
 
-    # Trend Chart
     st.markdown("### ⏱️ Last 10 Readings")
+
     chart = alt.Chart(df.tail(10)).transform_fold(
         ["PM2.5", "PM10"], as_=["Pollutant", "Value"]
     ).mark_line(point=True).encode(
@@ -122,13 +130,19 @@ for city in selected_cities:
 
 # ------------------ COMBINED DOWNLOAD ------------------
 st.markdown("---")
-st.subheader("📦 Download All Data")
+st.subheader("📦 Download All Cities Data")
 
-dfs = []
-for city_name, file_name in city_file.items():
+# ✅ FIX: Use the DICTIONARY not single string
+all_dfs = []
+for city_name, file_name in city_file_map.items():
     df = pd.read_csv(f"data/{file_name}")
     df["City"] = city_name
-    dfs.append(df)
+    all_dfs.append(df)
 
-combined_df = pd.concat(dfs, ignore_index=True)
-st.download_button("📥 Download All Cities Data", combined_df.to_csv(index=False), file_name="all_cities_data.csv")
+combined_df = pd.concat(all_dfs, ignore_index=True)
+
+st.download_button(
+    "📥 Download All Cities Data", 
+    combined_df.to_csv(index=False), 
+    file_name="all_cities_data.csv"
+)
