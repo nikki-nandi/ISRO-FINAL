@@ -1,3 +1,5 @@
+# app.py
+
 import streamlit as st
 import pandas as pd
 import folium
@@ -8,30 +10,43 @@ import os
 # ---------------------- PAGE CONFIG ----------------------
 st.set_page_config(page_title="PM2.5 & PM10 Monitoring Dashboard", layout="wide")
 
-# ---------------------- CUSTOM DARK THEME ----------------------
+# ---------------------- CUSTOM FULL BLUE THEME ----------------------
 st.markdown("""
     <style>
-    .main { background-color: #0b1725; color: #ffffff; }
+    html, body, .main {
+        background-color: #001f3f;
+        color: white;
+        font-family: 'Segoe UI', sans-serif;
+    }
     section[data-testid="stSidebar"] {
-        background-color: #08121d;
+        background-color: #003366;
         color: white;
-        border-right: 1px solid #222;
+        border-right: 2px solid #004080;
+        padding: 1rem;
     }
-    h1, h2, h3, h4, .st-bb, .st-cb { color: #ffffff !important; }
+    h1, h2, h3, h4, .st-bb, .st-cb, label, p, div, span {
+        color: #ffffff !important;
+    }
     .stButton>button, .stDownloadButton>button {
-        background-color: #1464b4;
+        background-color: #007bff;
         color: white;
         font-weight: bold;
         border-radius: 8px;
+        padding: 0.5rem 1rem;
     }
-    section[data-testid="stSidebar"] label {
+    .block-container {
+        padding: 1rem 2rem;
+    }
+    .stMarkdown, .stDataFrameContainer, .stSelectbox, .stMetric {
+        background-color: transparent !important;
+    }
+    .stDataFrameContainer .css-1y4p8pa, .stDataFrameContainer .e1tzin5v2 {
+        background-color: #001f3f !important;
         color: white !important;
-        font-weight: bold;
     }
-    section[data-testid="stSidebar"] .stSelectbox div[data-baseweb="select"] {
-        color: black !important;
-        background-color: white !important;
-        border-radius: 8px;
+    .css-1offfwp, .stDataFrameContainer table {
+        background-color: #001f3f;
+        color: white;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -42,8 +57,8 @@ with col1:
     st.image("ISRO-Color.png", width=120)
 with col2:
     st.markdown("""
-        <h2 style='text-align: center; color: #64b5f6;'>ISRO & CPCB AIR POLLUTION LIVE MONITORING SITE</h2>
-        <h5 style='text-align: center; color: #a5b4c3;'>Real-Time Air Quality Monitoring</h5>
+        <h2 style='text-align: center;'>ISRO & CPCB AIR POLLUTION LIVE MONITORING SITE</h2>
+        <h5 style='text-align: center;'>Real-Time Air Quality Monitoring</h5>
     """, unsafe_allow_html=True)
 with col3:
     st.image("cpcb.png", width=120)
@@ -70,7 +85,6 @@ try:
         st.error("Column 'PM2.5' not found.")
         st.stop()
 
-    # Create Folium map
     m = folium.Map(location=[22.5, 80.0], zoom_start=5, tiles='CartoDB dark_matter')
     for _, row in df_highres.iterrows():
         folium.CircleMarker(
@@ -82,7 +96,7 @@ try:
             popup=folium.Popup(f"PM2.5: {row['PM2.5']:.2f}", max_width=150)
         ).add_to(m)
 
-    st_data = st_folium(m, width=1000, height=500)
+    st_data = st_folium(m, width=1100, height=550)
 
     with st.expander("📋 Show High-Resolution Prediction Table"):
         st.dataframe(df_highres.round(2))
@@ -158,7 +172,7 @@ for city in selected_cities:
             popup=folium.Popup(f"PM2.5: {row['PM2.5']:.2f}, PM10: {row['PM10']:.2f}", max_width=150)
         ).add_to(m_city)
 
-    st_folium(m_city, width=1000, height=400)
+    st_folium(m_city, width=1100, height=450)
 
     chart_data = city_df.tail(10)
     melted = pd.melt(chart_data, id_vars=["hour"], value_vars=["PM2.5", "PM10"],
