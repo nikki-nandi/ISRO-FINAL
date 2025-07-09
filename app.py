@@ -62,7 +62,7 @@ def get_pm_color(pm):
 # ---------------------- HIGH RESOLUTION MAP ----------------------
 st.markdown("### 🌏 High-Resolution PM2.5 Prediction Map")
 
-df_highres = pd.read_csv("high_res_pm25_predictions.csv")
+df_highres = pd.read_csv("data/high_res_pm25_predictions.csv")
 df_highres["color"] = df_highres["PM2.5_Pred"].apply(get_pm_color)
 
 highres_layer = pdk.Layer(
@@ -102,10 +102,10 @@ st.markdown("### 🌐 Multi-City Live PM2.5 & PM10 Monitoring Dashboard")
 # Sidebar controls
 st.sidebar.header("🔧 Configuration")
 city_files = {
-    "Delhi": "delhi_pm_data.csv",
-    "Bangalore": "bangalore_pm_data.csv",
-    "Hyderabad": "hyderabad_pm_data.csv",
-    "Kolkata": "kolkata_pm_data.csv"
+    "Delhi": "data/delhi_pm_data.csv",
+    "Bangalore": "data/bangalore_pm_data.csv",
+    "Hyderabad": "data/hyderabad_pm_data.csv",
+    "Kolkata": "data/kolkata_pm_data.csv"
 }
 selected_cities = st.sidebar.multiselect("Select Cities", list(city_files.keys()), default=["Delhi"])
 refresh_interval = st.sidebar.selectbox("Refresh Interval (seconds)", [1, 5, 10], index=1)
