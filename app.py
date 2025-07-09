@@ -62,37 +62,41 @@ def get_pm_color(pm):
 # ---------------------- HIGH RESOLUTION MAP ----------------------
 st.markdown("### 🌏 High-Resolution PM2.5 Prediction Map")
 
-df_highres = pd.read_csv("data/high_res_pm25_predictions.csv")
-df_highres["color"] = df_highres["PM2.5_Pred"].apply(get_pm_color)
+try:
+    df_highres = pd.read_csv("data/high_res_input_sample_100.csv")
+    df_highres["color"] = df_highres["PM2.5_Pred"].apply(get_pm_color)
 
-highres_layer = pdk.Layer(
-    "ScatterplotLayer",
-    data=df_highres,
-    get_position='[longitude, latitude]',
-    get_radius=12000,
-    get_fill_color="color",
-    pickable=True,
-    opacity=0.8,
-)
+    highres_layer = pdk.Layer(
+        "ScatterplotLayer",
+        data=df_highres,
+        get_position='[longitude, latitude]',
+        get_radius=12000,
+        get_fill_color="color",
+        pickable=True,
+        opacity=0.8,
+    )
 
-highres_view = pdk.ViewState(latitude=22.5, longitude=80.0, zoom=4.2, pitch=30)
+    highres_view = pdk.ViewState(latitude=22.5, longitude=80.0, zoom=4.2, pitch=30)
 
-st.pydeck_chart(pdk.Deck(
-    map_style="mapbox://styles/mapbox/dark-v10",
-    initial_view_state=highres_view,
-    layers=[highres_layer],
-    tooltip={"text": "Lat: {latitude}\nLon: {longitude}\nPM2.5: {PM2.5_Pred}"}
-))
+    st.pydeck_chart(pdk.Deck(
+        map_style="mapbox://styles/mapbox/dark-v10",
+        initial_view_state=highres_view,
+        layers=[highres_layer],
+        tooltip={"text": "Lat: {latitude}\nLon: {longitude}\nPM2.5: {PM2.5_Pred}"}
+    ))
 
-with st.expander("📋 Show High-Resolution Prediction Table"):
-    st.dataframe(df_highres.round(2), use_container_width=True)
+    with st.expander("📋 Show High-Resolution Prediction Table"):
+        st.dataframe(df_highres.round(2), use_container_width=True)
 
-st.download_button(
-    label="📥 Download High-Res Predictions",
-    data=df_highres.to_csv(index=False).encode(),
-    file_name="high_res_pm25_predictions.csv",
-    mime="text/csv"
-)
+    st.download_button(
+        label="📥 Download High-Res Predictions",
+        data=df_highres.to_csv(index=False).encode(),
+        file_name="high_res_pm25_predictions.csv",
+        mime="text/csv"
+    )
+
+except FileNotFoundError:
+    st.error("❌ File `data/high_res_pm25_predictions.csv` not found.")
 
 st.markdown("---")
 
@@ -122,7 +126,7 @@ for city in selected_cities:
         st.warning(f"❌ Missing file: {file_path}")
 
 if not all_frames:
-    st.error("No valid city data found. Please check CSV files.")
+    st.error("No valid city data found. Please check CSV files in `data/` folder.")
     st.stop()
 
 df_all = pd.concat(all_frames, ignore_index=True)
