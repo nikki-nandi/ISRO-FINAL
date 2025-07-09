@@ -1,5 +1,5 @@
 streamlit
 pandas
-numpy
-pydeck
 altair
+folium
+streamlit-folium
