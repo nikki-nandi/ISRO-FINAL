@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import folium
-from streamlit_folium import st_folium
+from streamlit_folium import folium_static
 import altair as alt
 
 # ------------------ PAGE CONFIG ------------------
@@ -77,7 +77,7 @@ for _, row in hr_df.iterrows():
         fill_opacity=0.7
     ).add_to(hr_map)
 
-st_folium(hr_map, width=1200, height=500)
+folium_static(hr_map, width=1200, height=500)
 
 if st.button("📊 Show High-Resolution Prediction Table"):
     st.dataframe(hr_df)
@@ -134,7 +134,7 @@ if selected_cities:
             tooltip=f"PM2.5: {latest['PM2.5']}, PM10: {latest['PM10']}"
         ).add_to(city_map)
 
-        st_folium(city_map, width=1200, height=400)
+        folium_static(city_map, width=1200, height=400)
 
         st.markdown("### ⏱️ Last 10 Readings")
         chart = alt.Chart(df.tail(10)).transform_fold(
