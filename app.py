@@ -1,25 +1,25 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import pydeck as pdk
 import altair as alt
 import os
-import time
 
-# --- PAGE CONFIG ---
+# ---------------------- PAGE CONFIG ----------------------
 st.set_page_config(page_title="PM2.5 & PM10 Monitoring Dashboard", layout="wide")
 
-# --- BLUE THEME CUSTOM CSS ---
+# ---------------------- CUSTOM DARK THEME ----------------------
 st.markdown("""
     <style>
-    .main { background-color: #0a192f; color: #ffffff; }
+    .main { background-color: #0b1725; color: #ffffff; }
     section[data-testid="stSidebar"] {
-        background-color: #112e54;
+        background-color: #08121d;
         color: white;
         border-right: 1px solid #222;
     }
-    h1, h2, h3, h4, .st-bb, .st-cb { color: #64b5f6 !important; }
+    h1, h2, h3, h4, .st-bb, .st-cb { color: #ffffff !important; }
     .stButton>button, .stDownloadButton>button {
-        background-color: #1976d2;
+        background-color: #1464b4;
         color: white;
         font-weight: bold;
         border-radius: 8px;
@@ -36,145 +36,150 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- HEADER ---
-col_logo1, col_title, col_logo2 = st.columns([1, 5, 1])
-with col_logo1:
-    st.image("ISRO-Color.png", width=150)
-with col_title:
+# ---------------------- HEADER ----------------------
+col1, col2, col3 = st.columns([1, 5, 1])
+with col1:
+    st.image("ISRO-Color.png", width=120)
+with col2:
     st.markdown("""
         <h2 style='text-align: center; color: #64b5f6;'>ISRO & CPCB AIR POLLUTION LIVE MONITORING SITE</h2>
         <h5 style='text-align: center; color: #a5b4c3;'>Real-Time Air Quality Monitoring</h5>
     """, unsafe_allow_html=True)
-with col_logo2:
-    st.image("cpcb.png", width=150)
+with col3:
+    st.image("cpcb.png", width=120)
 
 st.markdown("---")
 
-# --- HIGH-RES MAP ---
-@st.cache_data
-def load_high_res_data():
-    return pd.read_csv("data/high_res_input_sample_100.csv")
-
+# ---------------------- HELPER: COLOR BASED ON PM2.5 ----------------------
 def get_pm_color(pm):
     if pm <= 60:
-        return [0, 150, 255]  # Blue for good
+        return [0, 200, 0]          # Green
     elif pm <= 120:
-        return [255, 200, 0]  # Yellow for moderate
+        return [255, 165, 0]        # Orange
     else:
-        return [255, 0, 0]    # Red for unhealthy
+        return [255, 0, 0]          # Red
 
-st.markdown("### 🌏 High-Resolution PM2.5 & PM10 Map")
-df_map = load_high_res_data()
-df_map["color"] = df_map["PM2.5"].apply(get_pm_color)
-df_map["city_name"] = "PM2.5: " + df_map["PM2.5"].astype(str)
+# ---------------------- HIGH RESOLUTION MAP ----------------------
+st.markdown("### 🌏 High-Resolution PM2.5 Prediction Map")
 
-layer_map = pdk.Layer(
+df_highres = pd.read_csv("high_res_pm25_predictions.csv")
+df_highres["color"] = df_highres["PM2.5_Pred"].apply(get_pm_color)
+
+highres_layer = pdk.Layer(
     "ScatterplotLayer",
-    data=df_map,
+    data=df_highres,
     get_position='[longitude, latitude]',
-    get_radius=10000,
+    get_radius=12000,
     get_fill_color="color",
     pickable=True,
     opacity=0.8,
 )
 
-label_layer = pdk.Layer(
-    "TextLayer",
-    data=df_map,
-    get_position='[longitude, latitude]',
-    get_text='city_name',
-    get_color='[255, 255, 255]',
-    get_size=16,
-    get_alignment_baseline="bottom"
-)
-
-view_map = pdk.ViewState(latitude=22.5, longitude=80.0, zoom=4.5, pitch=0)
+highres_view = pdk.ViewState(latitude=22.5, longitude=80.0, zoom=4.2, pitch=30)
 
 st.pydeck_chart(pdk.Deck(
-    map_style="mapbox://styles/mapbox/light-v10",
-    initial_view_state=view_map,
-    layers=[layer_map, label_layer],
-    tooltip={"text": "Lat: {latitude}\nLon: {longitude}\nPM2.5: {PM2.5}"}
+    map_style="mapbox://styles/mapbox/dark-v10",
+    initial_view_state=highres_view,
+    layers=[highres_layer],
+    tooltip={"text": "Lat: {latitude}\nLon: {longitude}\nPM2.5: {PM2.5_Pred}"}
 ))
 
-with st.expander("📋 Show High-Resolution PM Table"):
-    st.dataframe(df_map[["latitude", "longitude", "PM2.5", "PM10"]].round(2))
+with st.expander("📋 Show High-Resolution Prediction Table"):
+    st.dataframe(df_highres.round(2), use_container_width=True)
 
 st.download_button(
-    label="📅 Download High-Res PM Data",
-    data=df_map.to_csv(index=False).encode(),
-    file_name="pm25_high_res_predictions.csv",
+    label="📥 Download High-Res Predictions",
+    data=df_highres.to_csv(index=False).encode(),
+    file_name="high_res_pm25_predictions.csv",
     mime="text/csv"
 )
 
-# --- CITY MONITORING ---
+st.markdown("---")
+
+# ---------------------- CITY-WISE MONITORING ----------------------
 st.markdown("### 🌐 Multi-City Live PM2.5 & PM10 Monitoring Dashboard")
 
-available_cities = {
-    "Delhi": "data/delhi_pm_data.csv",
-    "Bangalore": "data/bangalore_pm_data.csv",
-    "Hyderabad": "data/hyderabad_pm_data.csv",
-    "Kolkata": "data/kolkata_pm_data.csv"
-}
-
+# Sidebar controls
 st.sidebar.header("🔧 Configuration")
-selected_cities = st.sidebar.multiselect("Select cities to monitor:", list(available_cities.keys()), default=list(available_cities.keys()))
+city_files = {
+    "Delhi": "delhi_pm_data.csv",
+    "Bangalore": "bangalore_pm_data.csv",
+    "Hyderabad": "hyderabad_pm_data.csv",
+    "Kolkata": "kolkata_pm_data.csv"
+}
+selected_cities = st.sidebar.multiselect("Select Cities", list(city_files.keys()), default=["Delhi"])
 refresh_interval = st.sidebar.selectbox("Refresh Interval (seconds)", [1, 5, 10], index=1)
 
-frames = []
+# Read all selected city data
+all_frames = []
 for city in selected_cities:
-    path = available_cities.get(city)
-    if path and os.path.exists(path):
-        df = pd.read_csv(path)
+    file_path = city_files[city]
+    if os.path.exists(file_path):
+        df = pd.read_csv(file_path)
         df["city"] = city
-        frames.append(df)
+        all_frames.append(df)
     else:
-        st.warning(f"Data for {city} not found at {path}")
+        st.warning(f"❌ Missing file: {file_path}")
 
-if not frames:
+if not all_frames:
+    st.error("No valid city data found. Please check CSV files.")
     st.stop()
 
-df_all = pd.concat(frames, ignore_index=True)
-placeholder = st.empty()
+df_all = pd.concat(all_frames, ignore_index=True)
+df_all["color"] = df_all["PM2.5_Pred"].apply(get_pm_color)
 
-st.subheader("📱 Realtime AQ Monitoring")
+# ---------------------- DISPLAY CITY-WISE DATA ----------------------
+for city in selected_cities:
+    city_df = df_all[df_all["city"] == city]
+    if city_df.empty:
+        continue
 
-for i in range(len(df_all)):
-    row = df_all.iloc[i].copy()
+    latest_row = city_df.iloc[-1]
+    lat, lon = latest_row["latitude"], latest_row["longitude"]
 
-    with placeholder.container():
-        st.markdown(f"### 🌆 {row['city']} | ⏱️ Hour: {row['hour']}")
-        col1, col2 = st.columns(2)
-        col1.markdown(f"<div style='padding:20px;background:#1976d2;color:white;border-radius:10px;'>PM2.5<br><span style='font-size:36px'>{row['PM2.5']:.2f}</span></div>", unsafe_allow_html=True)
-        col2.markdown(f"<div style='padding:20px;background:#1976d2;color:white;border-radius:10px;'>PM10<br><span style='font-size:36px'>{row['PM10']:.2f}</span></div>", unsafe_allow_html=True)
+    st.markdown(f"## 🏙️ {city} | ⏱️ Hour: {int(latest_row['hour'])}")
+    col1, col2 = st.columns(2)
+    col1.metric("PM2.5", f"{latest_row['PM2.5_Pred']:.2f} μg/m³")
+    col2.metric("PM10", f"{latest_row['PM10_Pred']:.2f} μg/m³")
 
-        view = pdk.ViewState(latitude=row["latitude"], longitude=row["longitude"], zoom=6, pitch=0)
-        layer = pdk.Layer("ScatterplotLayer", data=pd.DataFrame([row]), get_position='[longitude, latitude]', get_fill_color=get_pm_color(row["PM2.5"]), get_radius=10000)
+    city_layer = pdk.Layer(
+        "ScatterplotLayer",
+        data=city_df,
+        get_position='[longitude, latitude]',
+        get_radius=10000,
+        get_fill_color="color",
+        pickable=True,
+        opacity=0.9
+    )
 
-        st.pydeck_chart(pdk.Deck(
-            map_style="mapbox://styles/mapbox/light-v10",
-            initial_view_state=view,
-            layers=[layer]
-        ))
+    city_view = pdk.ViewState(latitude=lat, longitude=lon, zoom=6, pitch=30)
 
-        last_10 = df_all[df_all["city"] == row["city"]].copy().tail(10)
-        melted = pd.melt(last_10, id_vars=["hour"], value_vars=["PM2.5", "PM10"], var_name="Pollutant", value_name="Concentration")
+    st.pydeck_chart(pdk.Deck(
+        map_style="mapbox://styles/mapbox/dark-v10",
+        initial_view_state=city_view,
+        layers=[city_layer],
+        tooltip={"text": "Lat: {latitude}\nLon: {longitude}\nPM2.5: {PM2.5_Pred}\nPM10: {PM10_Pred}"}
+    ))
 
-        chart = alt.Chart(melted).mark_line(point=True, strokeWidth=3).encode(
-            x=alt.X("hour:O", title="Hour"),
-            y=alt.Y("Concentration:Q", title="μg/m³"),
-            color=alt.Color("Pollutant:N"),
-            tooltip=["hour", "Pollutant", "Concentration"]
-        ).properties(title="📊 Last 10 Readings", height=350, width=850).interactive()
+    # Line chart for last 10 readings
+    chart_data = city_df.tail(10)
+    melted = pd.melt(chart_data, id_vars=["hour"], value_vars=["PM2.5_Pred", "PM10_Pred"],
+                     var_name="Pollutant", value_name="Concentration")
 
-        st.altair_chart(chart, use_container_width=True)
-        st.markdown("---")
+    chart = alt.Chart(melted).mark_line(point=True).encode(
+        x=alt.X("hour:O", title="Hour"),
+        y=alt.Y("Concentration:Q", title="μg/m³"),
+        color="Pollutant:N",
+        tooltip=["hour", "Pollutant", "Concentration"]
+    ).properties(title=f"📊 Last 10 Readings - {city}", height=300)
 
-    time.sleep(refresh_interval)
+    st.altair_chart(chart, use_container_width=True)
+    st.markdown("---")
 
+# ---------------------- FINAL DOWNLOAD ----------------------
 st.download_button(
-    label="📆 Download All City Data",
+    label="📥 Download All City Data",
     data=df_all.to_csv(index=False).encode(),
-    file_name="all_city_pm_data.csv",
+    file_name="all_city_pm_predictions.csv",
     mime="text/csv"
 )
