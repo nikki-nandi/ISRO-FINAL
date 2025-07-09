@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
-import pydeck as pdk
+import folium
+from streamlit_folium import st_folium
 import altair as alt
 import os
 
@@ -50,52 +50,45 @@ with col3:
 
 st.markdown("---")
 
-# ---------------------- HELPER: COLOR BASED ON PM2.5 ----------------------
+# ---------------------- HELPER ----------------------
 def get_pm_color(pm):
     if pm <= 60:
-        return [0, 200, 0]          # Green
+        return 'green'
     elif pm <= 120:
-        return [255, 165, 0]        # Orange
+        return 'orange'
     else:
-        return [255, 0, 0]          # Red
+        return 'red'
 
-# ---------------------- HIGH RESOLUTION MAP ----------------------
-st.markdown("### 🌏 High-Resolution PM2.5 Prediction Map")
+# ---------------------- HIGH-RESOLUTION MAP ----------------------
+st.markdown("### 🌏 High-Resolution PM2.5 Prediction Map (Folium)")
 
 try:
     df_highres = pd.read_csv("data/high_res_input_sample_100.csv")
     df_highres.rename(columns=lambda x: x.strip(), inplace=True)
 
     if 'PM2.5' not in df_highres.columns:
-        st.error("Column 'PM2.5' not found in high-res file.")
+        st.error("Column 'PM2.5' not found.")
         st.stop()
 
-    df_highres["color"] = df_highres["PM2.5"].apply(get_pm_color)
+    # Create Folium map
+    m = folium.Map(location=[22.5, 80.0], zoom_start=5, tiles='CartoDB dark_matter')
+    for _, row in df_highres.iterrows():
+        folium.CircleMarker(
+            location=[row['latitude'], row['longitude']],
+            radius=5,
+            color=get_pm_color(row['PM2.5']),
+            fill=True,
+            fill_opacity=0.7,
+            popup=folium.Popup(f"PM2.5: {row['PM2.5']:.2f}", max_width=150)
+        ).add_to(m)
 
-    highres_layer = pdk.Layer(
-        "ScatterplotLayer",
-        data=df_highres,
-        get_position='[longitude, latitude]',
-        get_radius=10000,
-        get_fill_color="color",
-        pickable=True,
-        opacity=0.8,
-    )
-
-    highres_view = pdk.ViewState(latitude=22.5, longitude=80.0, zoom=4.5, pitch=30)
-
-    st.pydeck_chart(pdk.Deck(
-        map_style="mapbox://styles/mapbox/dark-v10",
-        initial_view_state=highres_view,
-        layers=[highres_layer],
-        tooltip={"text": "Lat: {latitude}\nLon: {longitude}\nPM2.5: {PM2.5}"}
-    ))
+    st_data = st_folium(m, width=1000, height=500)
 
     with st.expander("📋 Show High-Resolution Prediction Table"):
-        st.dataframe(df_highres.round(2), use_container_width=True)
+        st.dataframe(df_highres.round(2))
 
     st.download_button(
-        label="📥 Download High-Res Predictions",
+        label="📅 Download High-Res Predictions",
         data=df_highres.to_csv(index=False).encode(),
         file_name="high_res_predictions.csv",
         mime="text/csv"
@@ -140,9 +133,7 @@ if 'PM2.5' not in df_all.columns or 'PM10' not in df_all.columns:
     st.error("Required columns 'PM2.5' and 'PM10' not found.")
     st.stop()
 
-df_all["color"] = df_all["PM2.5"].apply(get_pm_color)
-
-# ---------------------- DISPLAY CITY-WISE DATA ----------------------
+# ---------------------- DISPLAY CITY-WISE ----------------------
 for city in selected_cities:
     city_df = df_all[df_all["city"] == city]
     if city_df.empty:
@@ -151,31 +142,24 @@ for city in selected_cities:
     latest_row = city_df.iloc[-1]
     lat, lon = latest_row["latitude"], latest_row["longitude"]
 
-    st.markdown(f"## 🏙️ {city} | ⏱️ Hour: {int(latest_row['hour'])}")
+    st.markdown(f"## 🏩 {city} | ⏱️ Hour: {int(latest_row['hour'])}")
     col1, col2 = st.columns(2)
     col1.metric("PM2.5", f"{latest_row['PM2.5']:.2f} μg/m³")
     col2.metric("PM10", f"{latest_row['PM10']:.2f} μg/m³")
 
-    city_layer = pdk.Layer(
-        "ScatterplotLayer",
-        data=city_df,
-        get_position='[longitude, latitude]',
-        get_radius=10000,
-        get_fill_color="color",
-        pickable=True,
-        opacity=0.9
-    )
+    m_city = folium.Map(location=[lat, lon], zoom_start=7, tiles='CartoDB dark_matter')
+    for _, row in city_df.iterrows():
+        folium.CircleMarker(
+            location=[row['latitude'], row['longitude']],
+            radius=5,
+            color=get_pm_color(row['PM2.5']),
+            fill=True,
+            fill_opacity=0.7,
+            popup=folium.Popup(f"PM2.5: {row['PM2.5']:.2f}, PM10: {row['PM10']:.2f}", max_width=150)
+        ).add_to(m_city)
 
-    city_view = pdk.ViewState(latitude=lat, longitude=lon, zoom=6, pitch=30)
+    st_folium(m_city, width=1000, height=400)
 
-    st.pydeck_chart(pdk.Deck(
-        map_style="mapbox://styles/mapbox/dark-v10",
-        initial_view_state=city_view,
-        layers=[city_layer],
-        tooltip={"text": "Lat: {latitude}\nLon: {longitude}\nPM2.5: {PM2.5}\nPM10: {PM10}"}
-    ))
-
-    # Line chart for last 10 readings
     chart_data = city_df.tail(10)
     melted = pd.melt(chart_data, id_vars=["hour"], value_vars=["PM2.5", "PM10"],
                      var_name="Pollutant", value_name="Concentration")
@@ -190,9 +174,9 @@ for city in selected_cities:
     st.altair_chart(chart, use_container_width=True)
     st.markdown("---")
 
-# ---------------------- FINAL DOWNLOAD ----------------------
+# ---------------------- DOWNLOAD ALL ----------------------
 st.download_button(
-    label="📥 Download All City Data",
+    label="📅 Download All City Data",
     data=df_all.to_csv(index=False).encode(),
     file_name="all_city_pm_predictions.csv",
     mime="text/csv"
