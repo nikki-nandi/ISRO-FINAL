@@ -7,60 +7,50 @@ from streamlit_folium import st_folium
 import altair as alt
 import os
 
-# ---------------------- PAGE CONFIG ----------------------
-st.set_page_config(page_title="PM2.5 & PM10 Monitoring Dashboard", layout="wide")
+# ------------------ PAGE CONFIG ------------------
+st.set_page_config(page_title="Air Quality Dashboard", layout="wide")
 
-# ---------------------- CUSTOM DARK UI ----------------------
+# ------------------ CUSTOM UI STYLING ------------------
 st.markdown("""
     <style>
     html, body, .main {
-        background-color: #0b1a2d;
+        background-color: #001F3F;
         color: white;
         font-family: 'Segoe UI', sans-serif;
     }
     section[data-testid="stSidebar"] {
-        background-color: #0a1426;
-        color: white;
-        border-right: 2px solid #1e2d40;
-        padding: 1rem;
+        display: none !important;
     }
-    .stApp {
-        background-color: #0b1a2d;
-    }
-    h1, h2, h3, h4, .st-bb, .st-cb, label, p, div, span {
+    h1, h2, h3, h4, h5, h6, label, p, div, span {
         color: #ffffff !important;
     }
     .stButton>button, .stDownloadButton>button {
         background-color: #007bff;
         color: white;
         font-weight: bold;
-        border-radius: 8px;
-        padding: 0.5rem 1rem;
+        border-radius: 6px;
+        padding: 0.4rem 1.2rem;
         border: none;
     }
     .block-container {
-        padding: 2rem;
-        background-color: #0b1a2d;
-    }
-    .stDataFrameContainer, .stSelectbox, .stMetric {
-        background-color: #0b1a2d !important;
+        padding: 1rem 2rem 0rem 2rem;
     }
     .stDataFrameContainer table {
-        background-color: #0b1a2d;
+        background-color: #001F3F;
         color: white;
     }
-    .stExpanderHeader {
-        background-color: #11223d;
-        color: white !important;
+    .element-container {
+        padding-bottom: 0rem !important;
+        margin-bottom: 0rem !important;
     }
-    .folium-map {
-        border: 2px solid #0a1426;
-        border-radius: 10px;
+    .stSelectbox, .stMultiSelect, .stNumberInput {
+        background-color: #000000 !important;
+        color: white !important;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# ---------------------- HEADER ----------------------
+# ------------------ HEADER ------------------
 col1, col2, col3 = st.columns([1, 5, 1])
 with col1:
     st.image("ISRO-Color.png", width=100)
@@ -74,7 +64,7 @@ with col3:
 
 st.markdown("---")
 
-# ---------------------- HELPER FUNCTION ----------------------
+# ------------------ HELPER FUNCTION ------------------
 def get_pm_color(pm):
     if pm <= 60:
         return 'green'
@@ -83,7 +73,24 @@ def get_pm_color(pm):
     else:
         return 'red'
 
-# ---------------------- HIGH-RESOLUTION MAP ----------------------
+# ------------------ INPUT OPTIONS ------------------
+col_conf1, col_conf2 = st.columns([3, 1])
+with col_conf1:
+    st.markdown("### 🌐 Select Cities")
+    city_files = {
+        "Delhi": "data/delhi_pm_data.csv",
+        "Bangalore": "data/bangalore_pm_data.csv",
+        "Hyderabad": "data/hyderabad_pm_data.csv",
+        "Kolkata": "data/kolkata_pm_data.csv"
+    }
+    selected_cities = st.multiselect("Cities", list(city_files.keys()), default=["Delhi"])
+with col_conf2:
+    st.markdown("### ⏱️ Refresh Interval (sec)")
+    refresh_interval = st.number_input("Interval", min_value=1, max_value=60, value=5, step=1)
+
+st.markdown("---")
+
+# ------------------ HIGH-RES MAP ------------------
 st.markdown("### 🌏 High-Resolution PM2.5 Prediction Map")
 
 try:
@@ -105,7 +112,7 @@ try:
             popup=folium.Popup(f"PM2.5: {row['PM2.5']:.2f}", max_width=150)
         ).add_to(m)
 
-    st_folium(m, width=1200, height=550)
+    st_folium(m, width=1300, height=550)
 
     with st.expander("📋 Show Prediction Data Table"):
         st.dataframe(df_highres.round(2), use_container_width=True)
@@ -120,25 +127,13 @@ try:
 except FileNotFoundError:
     st.error("❌ Missing file: data/high_res_input_sample_100.csv")
 
-st.markdown("---")
-
-# ---------------------- CITY-WISE MONITORING ----------------------
-st.markdown("### 🌐 City-Wise PM2.5 & PM10 Monitoring")
-
-st.sidebar.header("🔧 Dashboard Configuration")
-city_files = {
-    "Delhi": "data/delhi_pm_data.csv",
-    "Bangalore": "data/bangalore_pm_data.csv",
-    "Hyderabad": "data/hyderabad_pm_data.csv",
-    "Kolkata": "data/kolkata_pm_data.csv"
-}
-selected_cities = st.sidebar.multiselect("Select Cities", list(city_files.keys()), default=["Delhi"])
-refresh_interval = st.sidebar.selectbox("Refresh Interval (seconds)", [1, 5, 10], index=1)
+# ------------------ CITY-WISE MAP ------------------
+st.markdown("### 🏙️ City-Wise PM2.5 & PM10 Monitoring")
 
 all_frames = []
 for city in selected_cities:
-    file_path = city_files[city]
-    if os.path.exists(file_path):
+    file_path = city_files.get(city)
+    if file_path and os.path.exists(file_path):
         df = pd.read_csv(file_path)
         df["city"] = city
         all_frames.append(df)
@@ -146,15 +141,14 @@ for city in selected_cities:
         st.warning(f"❌ File not found: {file_path}")
 
 if not all_frames:
-    st.error("No city data available. Please check the `data/` folder.")
+    st.error("No city data available.")
     st.stop()
 
-# ---------------------- CITY DISPLAY ----------------------
 df_all = pd.concat(all_frames, ignore_index=True)
 df_all.rename(columns=lambda x: x.strip(), inplace=True)
 
 if 'PM2.5' not in df_all.columns or 'PM10' not in df_all.columns:
-    st.error("Missing required columns: 'PM2.5' or 'PM10'")
+    st.error("Missing 'PM2.5' or 'PM10' columns.")
     st.stop()
 
 for city in selected_cities:
@@ -181,7 +175,7 @@ for city in selected_cities:
             popup=folium.Popup(f"PM2.5: {row['PM2.5']:.2f}, PM10: {row['PM10']:.2f}", max_width=150)
         ).add_to(m_city)
 
-    st_folium(m_city, width=1200, height=450)
+    st_folium(m_city, width=1300, height=450)
 
     chart_data = city_df.tail(10)
     melted = pd.melt(chart_data, id_vars=["hour"], value_vars=["PM2.5", "PM10"],
@@ -195,9 +189,10 @@ for city in selected_cities:
     ).properties(title=f"📊 Last 10 Readings - {city}", height=300)
 
     st.altair_chart(chart, use_container_width=True)
-    st.markdown("---")
 
-# ---------------------- DOWNLOAD ----------------------
+st.markdown("---")
+
+# ------------------ DOWNLOAD ALL ------------------
 st.download_button(
     label="📇 Download All City Data",
     data=df_all.to_csv(index=False).encode(),
