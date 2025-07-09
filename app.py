@@ -10,18 +10,18 @@ import os
 # ---------------------- PAGE CONFIG ----------------------
 st.set_page_config(page_title="PM2.5 & PM10 Monitoring Dashboard", layout="wide")
 
-# ---------------------- CUSTOM FULL BLUE THEME ----------------------
+# ---------------------- CUSTOM DARK UI ----------------------
 st.markdown("""
     <style>
     html, body, .main {
-        background-color: #001f3f;
+        background-color: #0c0f1c;
         color: white;
         font-family: 'Segoe UI', sans-serif;
     }
     section[data-testid="stSidebar"] {
-        background-color: #003366;
+        background-color: #1c1f2e;
         color: white;
-        border-right: 2px solid #004080;
+        border-right: 2px solid #2b2e45;
         padding: 1rem;
     }
     h1, h2, h3, h4, .st-bb, .st-cb, label, p, div, span {
@@ -33,20 +33,21 @@ st.markdown("""
         font-weight: bold;
         border-radius: 8px;
         padding: 0.5rem 1rem;
+        border: none;
     }
     .block-container {
-        padding: 1rem 2rem;
+        padding: 1.5rem 2rem;
     }
-    .stMarkdown, .stDataFrameContainer, .stSelectbox, .stMetric {
+    .stDataFrameContainer, .stSelectbox, .stMetric {
         background-color: transparent !important;
     }
-    .stDataFrameContainer .css-1y4p8pa, .stDataFrameContainer .e1tzin5v2 {
-        background-color: #001f3f !important;
-        color: white !important;
-    }
-    .css-1offfwp, .stDataFrameContainer table {
-        background-color: #001f3f;
+    .stDataFrameContainer table {
+        background-color: #0c0f1c;
         color: white;
+    }
+    .stExpanderHeader {
+        background-color: #1e2235;
+        color: white !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -54,18 +55,18 @@ st.markdown("""
 # ---------------------- HEADER ----------------------
 col1, col2, col3 = st.columns([1, 5, 1])
 with col1:
-    st.image("ISRO-Color.png", width=120)
+    st.image("ISRO-Color.png", width=100)
 with col2:
     st.markdown("""
-        <h2 style='text-align: center;'>ISRO & CPCB AIR POLLUTION LIVE MONITORING SITE</h2>
-        <h5 style='text-align: center;'>Real-Time Air Quality Monitoring</h5>
+        <h2 style='text-align: center; color:#00bfff;'>ISRO & CPCB AIR QUALITY MONITORING</h2>
+        <h5 style='text-align: center;'>Real-Time PM2.5 & PM10 Dashboard</h5>
     """, unsafe_allow_html=True)
 with col3:
-    st.image("cpcb.png", width=120)
+    st.image("cpcb.png", width=100)
 
 st.markdown("---")
 
-# ---------------------- HELPER ----------------------
+# ---------------------- HELPER FUNCTION ----------------------
 def get_pm_color(pm):
     if pm <= 60:
         return 'green'
@@ -75,14 +76,14 @@ def get_pm_color(pm):
         return 'red'
 
 # ---------------------- HIGH-RESOLUTION MAP ----------------------
-st.markdown("### 🌏 High-Resolution PM2.5 Prediction Map (Folium)")
+st.markdown("### 🌏 High-Resolution PM2.5 Prediction Map")
 
 try:
     df_highres = pd.read_csv("data/high_res_input_sample_100.csv")
     df_highres.rename(columns=lambda x: x.strip(), inplace=True)
 
     if 'PM2.5' not in df_highres.columns:
-        st.error("Column 'PM2.5' not found.")
+        st.error("Column 'PM2.5' not found in dataset.")
         st.stop()
 
     m = folium.Map(location=[22.5, 80.0], zoom_start=5, tiles='CartoDB dark_matter')
@@ -96,27 +97,27 @@ try:
             popup=folium.Popup(f"PM2.5: {row['PM2.5']:.2f}", max_width=150)
         ).add_to(m)
 
-    st_data = st_folium(m, width=1100, height=550)
+    st_folium(m, width=1100, height=550)
 
-    with st.expander("📋 Show High-Resolution Prediction Table"):
+    with st.expander("📋 Show Prediction Data Table"):
         st.dataframe(df_highres.round(2))
 
     st.download_button(
-        label="📅 Download High-Res Predictions",
+        label="🗓️ Download High-Res Predictions",
         data=df_highres.to_csv(index=False).encode(),
         file_name="high_res_predictions.csv",
         mime="text/csv"
     )
 
 except FileNotFoundError:
-    st.error("❌ File `data/high_res_input_sample_100.csv` not found.")
+    st.error("❌ Missing file: data/high_res_input_sample_100.csv")
 
 st.markdown("---")
 
 # ---------------------- CITY-WISE MONITORING ----------------------
-st.markdown("### 🌐 Multi-City Live PM2.5 & PM10 Monitoring Dashboard")
+st.markdown("### 🌐 City-Wise PM2.5 & PM10 Monitoring")
 
-st.sidebar.header("🔧 Configuration")
+st.sidebar.header("🔧 Dashboard Configuration")
 city_files = {
     "Delhi": "data/delhi_pm_data.csv",
     "Bangalore": "data/bangalore_pm_data.csv",
@@ -134,20 +135,20 @@ for city in selected_cities:
         df["city"] = city
         all_frames.append(df)
     else:
-        st.warning(f"❌ Missing file: {file_path}")
+        st.warning(f"❌ File not found: {file_path}")
 
 if not all_frames:
-    st.error("No valid city data found. Please check files in `data/` folder.")
+    st.error("No city data available. Please check the `data/` folder.")
     st.stop()
 
+# ---------------------- CITY DISPLAY ----------------------
 df_all = pd.concat(all_frames, ignore_index=True)
 df_all.rename(columns=lambda x: x.strip(), inplace=True)
 
 if 'PM2.5' not in df_all.columns or 'PM10' not in df_all.columns:
-    st.error("Required columns 'PM2.5' and 'PM10' not found.")
+    st.error("Missing required columns: 'PM2.5' or 'PM10'")
     st.stop()
 
-# ---------------------- DISPLAY CITY-WISE ----------------------
 for city in selected_cities:
     city_df = df_all[df_all["city"] == city]
     if city_df.empty:
@@ -158,8 +159,8 @@ for city in selected_cities:
 
     st.markdown(f"## 🏩 {city} | ⏱️ Hour: {int(latest_row['hour'])}")
     col1, col2 = st.columns(2)
-    col1.metric("PM2.5", f"{latest_row['PM2.5']:.2f} μg/m³")
-    col2.metric("PM10", f"{latest_row['PM10']:.2f} μg/m³")
+    col1.metric("PM2.5 (μg/m³)", f"{latest_row['PM2.5']:.2f}")
+    col2.metric("PM10 (μg/m³)", f"{latest_row['PM10']:.2f}")
 
     m_city = folium.Map(location=[lat, lon], zoom_start=7, tiles='CartoDB dark_matter')
     for _, row in city_df.iterrows():
@@ -188,9 +189,9 @@ for city in selected_cities:
     st.altair_chart(chart, use_container_width=True)
     st.markdown("---")
 
-# ---------------------- DOWNLOAD ALL ----------------------
+# ---------------------- DOWNLOAD ----------------------
 st.download_button(
-    label="📅 Download All City Data",
+    label="📇 Download All City Data",
     data=df_all.to_csv(index=False).encode(),
     file_name="all_city_pm_predictions.csv",
     mime="text/csv"
