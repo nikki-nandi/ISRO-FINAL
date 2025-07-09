@@ -64,25 +64,31 @@ st.markdown("### 🌏 High-Resolution PM2.5 Prediction Map")
 
 try:
     df_highres = pd.read_csv("data/high_res_input_sample_100.csv")
-    df_highres["color"] = df_highres["PM2.5_Pred"].apply(get_pm_color)
+    df_highres.rename(columns=lambda x: x.strip(), inplace=True)
+
+    if 'PM2.5' not in df_highres.columns:
+        st.error("Column 'PM2.5' not found in high-res file.")
+        st.stop()
+
+    df_highres["color"] = df_highres["PM2.5"].apply(get_pm_color)
 
     highres_layer = pdk.Layer(
         "ScatterplotLayer",
         data=df_highres,
         get_position='[longitude, latitude]',
-        get_radius=12000,
+        get_radius=10000,
         get_fill_color="color",
         pickable=True,
         opacity=0.8,
     )
 
-    highres_view = pdk.ViewState(latitude=22.5, longitude=80.0, zoom=4.2, pitch=30)
+    highres_view = pdk.ViewState(latitude=22.5, longitude=80.0, zoom=4.5, pitch=30)
 
     st.pydeck_chart(pdk.Deck(
         map_style="mapbox://styles/mapbox/dark-v10",
         initial_view_state=highres_view,
         layers=[highres_layer],
-        tooltip={"text": "Lat: {latitude}\nLon: {longitude}\nPM2.5: {PM2.5_Pred}"}
+        tooltip={"text": "Lat: {latitude}\nLon: {longitude}\nPM2.5: {PM2.5}"}
     ))
 
     with st.expander("📋 Show High-Resolution Prediction Table"):
@@ -91,19 +97,18 @@ try:
     st.download_button(
         label="📥 Download High-Res Predictions",
         data=df_highres.to_csv(index=False).encode(),
-        file_name="high_res_pm25_predictions.csv",
+        file_name="high_res_predictions.csv",
         mime="text/csv"
     )
 
 except FileNotFoundError:
-    st.error("❌ File `data/high_res_pm25_predictions.csv` not found.")
+    st.error("❌ File `data/high_res_input_sample_100.csv` not found.")
 
 st.markdown("---")
 
 # ---------------------- CITY-WISE MONITORING ----------------------
 st.markdown("### 🌐 Multi-City Live PM2.5 & PM10 Monitoring Dashboard")
 
-# Sidebar controls
 st.sidebar.header("🔧 Configuration")
 city_files = {
     "Delhi": "data/delhi_pm_data.csv",
@@ -114,7 +119,6 @@ city_files = {
 selected_cities = st.sidebar.multiselect("Select Cities", list(city_files.keys()), default=["Delhi"])
 refresh_interval = st.sidebar.selectbox("Refresh Interval (seconds)", [1, 5, 10], index=1)
 
-# Read all selected city data
 all_frames = []
 for city in selected_cities:
     file_path = city_files[city]
@@ -126,11 +130,17 @@ for city in selected_cities:
         st.warning(f"❌ Missing file: {file_path}")
 
 if not all_frames:
-    st.error("No valid city data found. Please check CSV files in `data/` folder.")
+    st.error("No valid city data found. Please check files in `data/` folder.")
     st.stop()
 
 df_all = pd.concat(all_frames, ignore_index=True)
-df_all["color"] = df_all["PM2.5_Pred"].apply(get_pm_color)
+df_all.rename(columns=lambda x: x.strip(), inplace=True)
+
+if 'PM2.5' not in df_all.columns or 'PM10' not in df_all.columns:
+    st.error("Required columns 'PM2.5' and 'PM10' not found.")
+    st.stop()
+
+df_all["color"] = df_all["PM2.5"].apply(get_pm_color)
 
 # ---------------------- DISPLAY CITY-WISE DATA ----------------------
 for city in selected_cities:
@@ -143,8 +153,8 @@ for city in selected_cities:
 
     st.markdown(f"## 🏙️ {city} | ⏱️ Hour: {int(latest_row['hour'])}")
     col1, col2 = st.columns(2)
-    col1.metric("PM2.5", f"{latest_row['PM2.5_Pred']:.2f} μg/m³")
-    col2.metric("PM10", f"{latest_row['PM10_Pred']:.2f} μg/m³")
+    col1.metric("PM2.5", f"{latest_row['PM2.5']:.2f} μg/m³")
+    col2.metric("PM10", f"{latest_row['PM10']:.2f} μg/m³")
 
     city_layer = pdk.Layer(
         "ScatterplotLayer",
@@ -162,12 +172,12 @@ for city in selected_cities:
         map_style="mapbox://styles/mapbox/dark-v10",
         initial_view_state=city_view,
         layers=[city_layer],
-        tooltip={"text": "Lat: {latitude}\nLon: {longitude}\nPM2.5: {PM2.5_Pred}\nPM10: {PM10_Pred}"}
+        tooltip={"text": "Lat: {latitude}\nLon: {longitude}\nPM2.5: {PM2.5}\nPM10: {PM10}"}
     ))
 
     # Line chart for last 10 readings
     chart_data = city_df.tail(10)
-    melted = pd.melt(chart_data, id_vars=["hour"], value_vars=["PM2.5_Pred", "PM10_Pred"],
+    melted = pd.melt(chart_data, id_vars=["hour"], value_vars=["PM2.5", "PM10"],
                      var_name="Pollutant", value_name="Concentration")
 
     chart = alt.Chart(melted).mark_line(point=True).encode(
