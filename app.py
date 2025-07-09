@@ -35,19 +35,30 @@ with col3:
 st.markdown("---")
 
 # ------------------ SIDEBAR ------------------
-with st.sidebar:
-    st.header("🛠️ Configuration")
-    selected_cities = st.multiselect(
-        "Select cities to monitor:", 
-        ["Delhi", "Kolkata", "Bangalore", "Hyderabad"], 
-        default=["Delhi"]
-    )
-    refresh_interval = st.selectbox("Refresh Interval (seconds)", [5, 10, 30, 60])
+st.sidebar.header("🛠️ Configuration")
+selected_cities = st.sidebar.multiselect(
+    "Select cities to monitor:",
+    ["Delhi", "Kolkata", "Bangalore", "Hyderabad"],
+    default=["Delhi"]
+)
+refresh_interval = st.sidebar.selectbox(
+    "Refresh Interval (seconds)",
+    [5, 10, 30, 60],
+    index=1
+)
 
 # ------------------ HIGH-RES MAP ------------------
 st.subheader("🌍 High-Resolution PM2.5 Prediction Map")
 
-hr_df = pd.read_csv("data/high_res_input_sample_100.csv")
+try:
+    hr_df = pd.read_csv("data/high_res_input_sample_100.csv")
+except Exception:
+    st.warning("High-resolution file not found. Showing dummy data.")
+    hr_df = pd.DataFrame({
+        "latitude": [28.6, 19.07],
+        "longitude": [77.2, 72.87],
+        "PM2.5": [50, 110]
+    })
 
 hr_map = folium.Map(
     location=[hr_df['latitude'].mean(), hr_df['longitude'].mean()],
@@ -68,20 +79,18 @@ for _, row in hr_df.iterrows():
 
 st_folium(hr_map, width=1200, height=500)
 
-col1, col2 = st.columns(2)
-with col1:
-    if st.button("📊 Show High-Resolution Prediction Table"):
-        st.dataframe(hr_df)
-with col2:
-    st.download_button(
-        "📥 Download High-Res Predictions", 
-        hr_df.to_csv(index=False), 
-        file_name="high_res_pm25.csv"
-    )
+if st.button("📊 Show High-Resolution Prediction Table"):
+    st.dataframe(hr_df)
+
+st.download_button(
+    "📥 Download High-Res Predictions",
+    hr_df.to_csv(index=False),
+    file_name="high_res_pm25.csv"
+)
 
 # ------------------ CITY-WISE MONITORING ------------------
 
-st.markdown("### 📡 Multi-City Live PM2.5 & PM10 Monitoring Dashboard")
+st.subheader("📡 Multi-City Live PM2.5 & PM10 Monitoring Dashboard")
 
 city_file_map = {
     "Delhi": "delhi_pm_data.csv",
@@ -90,59 +99,80 @@ city_file_map = {
     "Hyderabad": "hyderabad_pm_data.csv"
 }
 
-for city in selected_cities:
-    st.markdown(f"### 🏙️ {city}")
+if selected_cities:
+    for city in selected_cities:
+        st.markdown(f"### 🏙️ {city}")
 
-    city_file = city_file_map[city]
-    df = pd.read_csv(f"data/{city_file}")
+        file_name = city_file_map[city]
+        try:
+            df = pd.read_csv(f"data/{file_name}")
+        except Exception:
+            st.warning(f"No data for {city}. Showing dummy data.")
+            df = pd.DataFrame({
+                "hour": list(range(1, 11)),
+                "PM2.5": [40 + i*2 for i in range(10)],
+                "PM10": [70 + i*3 for i in range(10)],
+                "latitude": [28.6]*10,
+                "longitude": [77.2]*10
+            })
 
-    latest = df.iloc[-1]
+        latest = df.iloc[-1]
 
-    st.markdown(f"**Hour:** {latest['hour']}")
+        st.markdown(f"**Hour:** {latest['hour']}")
 
-    c1, c2 = st.columns(2)
-    c1.metric("PM2.5", f"{latest['PM2.5']:.2f}")
-    c2.metric("PM10", f"{latest['PM10']:.2f}")
+        c1, c2 = st.columns(2)
+        c1.metric("PM2.5", f"{latest['PM2.5']:.2f}")
+        c2.metric("PM10", f"{latest['PM10']:.2f}")
 
-    city_map = folium.Map(
-        location=[latest['latitude'], latest['longitude']],
-        zoom_start=10,
-        tiles="CartoDB dark_matter"
-    )
-    folium.Marker(
-        location=[latest['latitude'], latest['longitude']],
-        tooltip=f"PM2.5: {latest['PM2.5']}, PM10: {latest['PM10']}"
-    ).add_to(city_map)
+        city_map = folium.Map(
+            location=[latest['latitude'], latest['longitude']],
+            zoom_start=10,
+            tiles="CartoDB dark_matter"
+        )
+        folium.Marker(
+            location=[latest['latitude'], latest['longitude']],
+            tooltip=f"PM2.5: {latest['PM2.5']}, PM10: {latest['PM10']}"
+        ).add_to(city_map)
 
-    st_folium(city_map, width=1200, height=400)
+        st_folium(city_map, width=1200, height=400)
 
-    st.markdown("### ⏱️ Last 10 Readings")
+        st.markdown("### ⏱️ Last 10 Readings")
+        chart = alt.Chart(df.tail(10)).transform_fold(
+            ["PM2.5", "PM10"], as_=["Pollutant", "Value"]
+        ).mark_line(point=True).encode(
+            x="hour:O",
+            y="Value:Q",
+            color="Pollutant:N"
+        ).properties(height=300)
 
-    chart = alt.Chart(df.tail(10)).transform_fold(
-        ["PM2.5", "PM10"], as_=["Pollutant", "Value"]
-    ).mark_line(point=True).encode(
-        x="hour:O",
-        y="Value:Q",
-        color="Pollutant:N"
-    ).properties(height=300)
-
-    st.altair_chart(chart, use_container_width=True)
+        st.altair_chart(chart, use_container_width=True)
+else:
+    st.info("Please select at least one city to monitor.")
 
 # ------------------ COMBINED DOWNLOAD ------------------
+
 st.markdown("---")
 st.subheader("📦 Download All Cities Data")
 
-# ✅ FIX: Use the DICTIONARY not single string
 all_dfs = []
 for city_name, file_name in city_file_map.items():
-    df = pd.read_csv(f"data/{file_name}")
+    try:
+        df = pd.read_csv(f"data/{file_name}")
+    except Exception:
+        df = pd.DataFrame({
+            "hour": list(range(1, 11)),
+            "PM2.5": [40 + i*2 for i in range(10)],
+            "PM10": [70 + i*3 for i in range(10)],
+            "latitude": [28.6]*10,
+            "longitude": [77.2]*10
+        })
     df["City"] = city_name
     all_dfs.append(df)
 
 combined_df = pd.concat(all_dfs, ignore_index=True)
 
 st.download_button(
-    "📥 Download All Cities Data", 
-    combined_df.to_csv(index=False), 
+    "📥 Download All Cities Data",
+    combined_df.to_csv(index=False),
     file_name="all_cities_data.csv"
 )
