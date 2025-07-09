@@ -14,15 +14,18 @@ st.set_page_config(page_title="PM2.5 & PM10 Monitoring Dashboard", layout="wide"
 st.markdown("""
     <style>
     html, body, .main {
-        background-color: #0c0f1c;
+        background-color: #0b1a2d;
         color: white;
         font-family: 'Segoe UI', sans-serif;
     }
     section[data-testid="stSidebar"] {
-        background-color: #1c1f2e;
+        background-color: #0a1426;
         color: white;
-        border-right: 2px solid #2b2e45;
+        border-right: 2px solid #1e2d40;
         padding: 1rem;
+    }
+    .stApp {
+        background-color: #0b1a2d;
     }
     h1, h2, h3, h4, .st-bb, .st-cb, label, p, div, span {
         color: #ffffff !important;
@@ -36,18 +39,23 @@ st.markdown("""
         border: none;
     }
     .block-container {
-        padding: 1.5rem 2rem;
+        padding: 2rem;
+        background-color: #0b1a2d;
     }
     .stDataFrameContainer, .stSelectbox, .stMetric {
-        background-color: transparent !important;
+        background-color: #0b1a2d !important;
     }
     .stDataFrameContainer table {
-        background-color: #0c0f1c;
+        background-color: #0b1a2d;
         color: white;
     }
     .stExpanderHeader {
-        background-color: #1e2235;
+        background-color: #11223d;
         color: white !important;
+    }
+    .folium-map {
+        border: 2px solid #0a1426;
+        border-radius: 10px;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -97,10 +105,10 @@ try:
             popup=folium.Popup(f"PM2.5: {row['PM2.5']:.2f}", max_width=150)
         ).add_to(m)
 
-    st_folium(m, width=1100, height=550)
+    st_folium(m, width=1200, height=550)
 
     with st.expander("📋 Show Prediction Data Table"):
-        st.dataframe(df_highres.round(2))
+        st.dataframe(df_highres.round(2), use_container_width=True)
 
     st.download_button(
         label="🗓️ Download High-Res Predictions",
@@ -173,7 +181,7 @@ for city in selected_cities:
             popup=folium.Popup(f"PM2.5: {row['PM2.5']:.2f}, PM10: {row['PM10']:.2f}", max_width=150)
         ).add_to(m_city)
 
-    st_folium(m_city, width=1100, height=450)
+    st_folium(m_city, width=1200, height=450)
 
     chart_data = city_df.tail(10)
     melted = pd.melt(chart_data, id_vars=["hour"], value_vars=["PM2.5", "PM10"],
