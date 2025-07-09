@@ -8,18 +8,18 @@ import time
 # --- PAGE CONFIG ---
 st.set_page_config(page_title="PM2.5 & PM10 Monitoring Dashboard", layout="wide")
 
-# --- DARK MODE CSS + Sidebar Label Styling ---
+# --- BLUE THEME CUSTOM CSS ---
 st.markdown("""
     <style>
-    .main { background-color: #0b1725; color: #ffffff; }
+    .main { background-color: #0a192f; color: #ffffff; }
     section[data-testid="stSidebar"] {
-        background-color: #08121d;
+        background-color: #112e54;
         color: white;
         border-right: 1px solid #222;
     }
-    h1, h2, h3, h4, .st-bb, .st-cb { color: #ffffff !important; }
+    h1, h2, h3, h4, .st-bb, .st-cb { color: #64b5f6 !important; }
     .stButton>button, .stDownloadButton>button {
-        background-color: #1464b4;
+        background-color: #1976d2;
         color: white;
         font-weight: bold;
         border-radius: 8px;
@@ -50,23 +50,23 @@ with col_logo2:
 
 st.markdown("---")
 
-# --- HIGH-RES MAP DATA ---
+# --- HIGH-RES MAP ---
 @st.cache_data
 def load_high_res_data():
     return pd.read_csv("data/high_res_input_sample_100.csv")
 
 def get_pm_color(pm):
     if pm <= 60:
-        return [0, 200, 0]
+        return [0, 150, 255]  # Blue for good
     elif pm <= 120:
-        return [255, 165, 0]
+        return [255, 200, 0]  # Yellow for moderate
     else:
-        return [255, 0, 0]
+        return [255, 0, 0]    # Red for unhealthy
 
 st.markdown("### 🌏 High-Resolution PM2.5 & PM10 Map")
-
 df_map = load_high_res_data()
 df_map["color"] = df_map["PM2.5"].apply(get_pm_color)
+df_map["city_name"] = "PM2.5: " + df_map["PM2.5"].astype(str)
 
 layer_map = pdk.Layer(
     "ScatterplotLayer",
@@ -78,12 +78,22 @@ layer_map = pdk.Layer(
     opacity=0.8,
 )
 
-view_map = pdk.ViewState(latitude=22.5, longitude=80.0, zoom=4.5, pitch=40)
+label_layer = pdk.Layer(
+    "TextLayer",
+    data=df_map,
+    get_position='[longitude, latitude]',
+    get_text='city_name',
+    get_color='[255, 255, 255]',
+    get_size=16,
+    get_alignment_baseline="bottom"
+)
+
+view_map = pdk.ViewState(latitude=22.5, longitude=80.0, zoom=4.5, pitch=0)
 
 st.pydeck_chart(pdk.Deck(
-    map_style="mapbox://styles/mapbox/dark-v10",
+    map_style="mapbox://styles/mapbox/light-v10",
     initial_view_state=view_map,
-    layers=[layer_map],
+    layers=[layer_map, label_layer],
     tooltip={"text": "Lat: {latitude}\nLon: {longitude}\nPM2.5: {PM2.5}"}
 ))
 
@@ -97,7 +107,7 @@ st.download_button(
     mime="text/csv"
 )
 
-# --- CITY MONITORING SECTION ---
+# --- CITY MONITORING ---
 st.markdown("### 🌐 Multi-City Live PM2.5 & PM10 Monitoring Dashboard")
 
 available_cities = {
@@ -135,13 +145,17 @@ for i in range(len(df_all)):
     with placeholder.container():
         st.markdown(f"### 🌆 {row['city']} | ⏱️ Hour: {row['hour']}")
         col1, col2 = st.columns(2)
-        col1.markdown(f"<div style='padding:20px;background:#112233;color:white;border-radius:10px;'>PM2.5<br><span style='font-size:36px'>{row['PM2.5']:.2f}</span></div>", unsafe_allow_html=True)
-        col2.markdown(f"<div style='padding:20px;background:#112233;color:white;border-radius:10px;'>PM10<br><span style='font-size:36px'>{row['PM10']:.2f}</span></div>", unsafe_allow_html=True)
+        col1.markdown(f"<div style='padding:20px;background:#1976d2;color:white;border-radius:10px;'>PM2.5<br><span style='font-size:36px'>{row['PM2.5']:.2f}</span></div>", unsafe_allow_html=True)
+        col2.markdown(f"<div style='padding:20px;background:#1976d2;color:white;border-radius:10px;'>PM10<br><span style='font-size:36px'>{row['PM10']:.2f}</span></div>", unsafe_allow_html=True)
 
-        view = pdk.ViewState(latitude=row["latitude"], longitude=row["longitude"], zoom=6, pitch=40)
+        view = pdk.ViewState(latitude=row["latitude"], longitude=row["longitude"], zoom=6, pitch=0)
         layer = pdk.Layer("ScatterplotLayer", data=pd.DataFrame([row]), get_position='[longitude, latitude]', get_fill_color=get_pm_color(row["PM2.5"]), get_radius=10000)
 
-        st.pydeck_chart(pdk.Deck(map_style="mapbox://styles/mapbox/dark-v10", initial_view_state=view, layers=[layer]))
+        st.pydeck_chart(pdk.Deck(
+            map_style="mapbox://styles/mapbox/light-v10",
+            initial_view_state=view,
+            layers=[layer]
+        ))
 
         last_10 = df_all[df_all["city"] == row["city"]].copy().tail(10)
         melted = pd.melt(last_10, id_vars=["hour"], value_vars=["PM2.5", "PM10"], var_name="Pollutant", value_name="Concentration")
